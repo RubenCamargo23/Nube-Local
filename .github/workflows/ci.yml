@@ -161,6 +161,9 @@ jobs:
           git checkout develop
           git pull origin develop
           git checkout -b "$RELEASE_BRANCH"
+          echo "$VERSION" > VERSION.txt
+          git add VERSION.txt
+          git commit -m "Bump deployment version to $VERSION"
           git push -u origin "$RELEASE_BRANCH"
       - name: Merge release -> main
         working-directory: ./monitors-platform
