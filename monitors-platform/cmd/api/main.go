@@ -52,11 +52,7 @@ func main() {
 
     ollamaClient   := reports.NewOllamaClient(cfg.OllamaHost, cfg.OllamaModel, cfg.OllamaTimeoutSecs)
     
-    // There is no reports.Service clearly defined in prompt, let's create a minimal Service interface struct.
-    type ReportsService struct {}
-    reportsSvc := &ReportsService{}
-    _ = reportsRepo
-    _ = ollamaClient
+    reportsSvc := reports.NewService(reportsRepo, ollamaClient, cfg.PDFPath, db)
 
     // Handlers
     authH        := auth.NewHandler(authSvc)
