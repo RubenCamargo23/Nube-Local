@@ -15,6 +15,10 @@ on:
         required: false
         default: ''
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   # ════════════════════════════════════════
   # JOB 1: Tests y Build
@@ -78,7 +82,7 @@ jobs:
       - name: Aplicar migraciones
         env:
           DATABASE_URL: postgres://monitors_user:monitors_pass@localhost:5432/monitors_test_db?sslmode=disable
-        run: migrate -path ./migrations -database "$DATABASE_URL" up
+        run: /usr/local/bin/migrate -path ./migrations -database "$DATABASE_URL" up
 
       - name: Ejecutar tests
         env:
