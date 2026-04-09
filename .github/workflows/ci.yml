@@ -64,7 +64,7 @@ jobs:
 
       - name: Instalar dependencias
         working-directory: ./monitors-platform
-        run: go mod download
+        run: go mod tidy
 
       - name: Verificar que compila
         working-directory: ./monitors-platform
