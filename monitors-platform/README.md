@@ -42,8 +42,26 @@ STORAGE_PATH=./storage
 PDF_PATH=./storage/pdfs
 ```
 
-> 🔒 **Nota sobre Producción y el Pipeline:**  
-> Exponer temporalmente estas claves en tu archivo `.env` para probar y correr **no afecta en lo absoluto a tu pipeline de Github Actions**. Durante la evaluación (CI), Github inyecta variables estériles en tiempo de ejecución. **NUNCA** debes incluir claves reales y confidenciales de tu servidor productivo aquí frente al repositorio público, usa este de arriba solo como una base de desarrollo para que todos en tu equipo compilen sin dolores de cabeza.
+---
+
+## 🐘 Conectar a la Base de Datos (DBeaver)
+
+Al ejecutar Docker, la base de datos se expone en tu máquina local. Usa las siguientes credenciales para explorarla visualmente usando [DBeaver](https://dbeaver.io/):
+
+- **Host (Servidor):** `localhost`
+- **Port (Puerto):** `5432`
+- **Database (Base de Datos):** `monitors_db`
+- **Username (Usuario):** `monitors_user`
+- **Password (Contraseña):** `monitors_pass`
+
+### Instrucciones para Mac y Windows:
+1. Descarga, instala y abre el programa **DBeaver**.
+2. Haz clic en el ícono de enchufe en la esquina superior izquierda llamado **"Nueva Conexión"** (New Database Connection).
+3. Selecciona el ícono del elefante de **PostgreSQL** y dale en Siguiente.
+4. Llena el formulario copiando y pegando los datos de la lista de arriba exactamente como están.
+5. Haz clic en el botón de abajo **"Probar conexión"** (Test Connection). 
+   *(Ojo: Si es la primera vez que lo usas, te puede salir un aviso pidiendo descargar los Drivers de Postgres, solo dale clic en el botón azul "Download").*
+6. Da clic en **"Finalizar"** (Finish). Podrás abrir la conexión creada en el menú izquierdo, ingresar a los esquemas, y visualizar o alterar las tablas de la aplicación en tiempo real.
 
 ---
 
