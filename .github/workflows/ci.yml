@@ -14,6 +14,9 @@ on:
         description: 'Versión manual (opcional)'
         required: false
         default: ''
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test-and-build:
@@ -69,13 +72,15 @@ jobs:
 
       - name: Instalar golang-migrate
         working-directory: ./monitors-platform
-        run: go install github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+        run: |
+          curl -sL "https://github.com/golang-migrate/migrate/releases/download/v4.18.1/migrate.linux-amd64.tar.gz" | tar xvz
+          sudo mv migrate /usr/local/bin/migrate
 
       - name: Aplicar migraciones
         working-directory: ./monitors-platform
         env:
           DATABASE_URL: postgres://monitors_user:monitors_pass@localhost:5432/monitors_test_db?sslmode=disable
-        run: migrate -path ./migrations -database "$DATABASE_URL" up
+        run: /usr/local/bin/migrate -path ./migrations -database "$DATABASE_URL" up
 
       - name: Ejecutar tests
         working-directory: ./monitors-platform
