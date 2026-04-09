@@ -65,6 +65,18 @@ Al ejecutar Docker, la base de datos se expone en tu máquina local. Usa las sig
 
 ---
 
+## 📊 Modelo de Datos y Relaciones (Estructura)
+
+La plataforma utiliza un modelo relacional estructurado en PostgreSQL. Estas son sus tablas principales y cómo se conectan:
+
+*   **`usuarios`**: Almacena a todas las personas del sistema (Estudiantes, Profesores, Administrativos). Se autentica vía JWT.
+*   **`espacios` y `periodos_academicos`**: Definen las asignaturas, departamentos académicos y los semestres en los que ocurren las tutorías.
+*   **`vinculaciones` (Tabla Pivote Central)**: Une a un estudiante (`usuario_id`) con su asignatura (`espacio_id`) y su profesor a cargo (`profesor_id`). Aquí se estipulan las reglas de negocio como el tipo (`MONITOR` / `GRAD_ASSISTANT`) y la carga máxima de `horas_semanales`.
+*   **`tareas`**: El registro semanal (timesheet) del monitor asociado a una `vinculación`. Contiene el registro de las `horas_invertidas`, el `estado`, y si el reporte fue enviado tardíamente.
+*   **`roles`, `adjuntos` y `reportes_pdf`**: Tablas de soporte para guardar control de permisos y rutas de la generación asíncrona de archivos PDF procesados por Redis.
+
+---
+
 ## 🚀 Paso a Paso: Cómo arrancar y probar el proyecto en local
 
 Para poner a marchar la aplicación en tu computadora de manera exitosa, sigue este orden estrictamente:
@@ -97,3 +109,55 @@ Si no quieres empaquetar la app de Go en Docker sino compilarla tú mismo en cal
 2. `go mod tidy` *(Descarga librerías manuales)*.
 3. `migrate -path ./migrations -database "postgres://monitors_user:monitors_pass@localhost:5432/monitors_db?sslmode=disable" up`
 4. `go run cmd/api/main.go` *(Enciende el servidor nativo).*
+
+---
+
+## 📡 Endpoints de la API y Guía de Postman
+
+La API sigue el estándar REST bajo el prefijo `http://localhost:8080/api/v1`. Para consumirla, usa **Postman** siguiendo este método:
+
+### 1. Autenticación Global en Postman (JWT)
+Salvo el Ping y el Login, TODAS las rutas están protegidas. 
+1. Realiza una petición `POST` a `http://localhost:8080/api/v1/auth/login` pasándole en el Body (formato raw JSON) el email y password del usuario. Te devolverá en verde un `token`.
+2. Copia todo ese texto del token.
+3. En Postman, ve a tu nueva petición (Ej: ver tareas), entra a la pestaña intermedia llamada **"Authorization"**.
+4. En el campo *Type* elige **"Bearer Token"**. Pega tu token en la casilla derecha. *(Ahora estás autenticado y el servidor sabe quién eres).*
+
+### 2. Catálogo Oficial de Rutas
+
+**🌐 Públicas**
+| Método | Endpoint | Acción |
+| :--- | :--- | :--- |
+| **GET** | `/api/v1/health` | Ping. Devuelve información de que el server está vivo y su versión. |
+| **POST**| `/api/v1/auth/login` | Recibe `{"email": "", "password": ""}` y devuelve el token JWT del actor. |
+
+**🧑‍💻 Administrador (`ADMIN`)**
+| Método | Endpoint | Acción |
+| :--- | :--- | :--- |
+| **POST** | `/api/v1/admin/usuarios` | Crea una persona nueva en el sistema. |
+| **GET** | `/api/v1/admin/usuarios` | Lista todo el padrón de usuarios. |
+| **POST** | `/api/v1/admin/usuarios/:id/roles` | Le asigna o transfiere un rol directivo a un usuario. |
+| **POST** | `/api/v1/admin/periodos` | Inaugura un periodo académico nuevo (ej. "2024-1"). |
+| **GET** | `/api/v1/admin/periodos` | Lista el historial de periodos académicos. |
+| **PATCH**| `/api/v1/admin/periodos/:id/cerrar` | Da por finalizado un periodo y prohíbe nuevas asignaciones ahí. |
+| **PATCH**| `/api/v1/admin/vinculaciones/:id` | Bloquea o actualiza la vinculación de un estudiante. |
+
+**🎓 Profesor (`PROFESSOR`)**
+| Método | Endpoint | Acción |
+| :--- | :--- | :--- |
+| **POST** | `/api/v1/espacios` | Crea un espacio académico nuevo o asignatura (Ej. "Física I"). |
+| **GET** | `/api/v1/espacios` | Devuelve todas las asignaturas a dictar de ese profesor. |
+| **POST** | `/api/v1/espacios/:id/vinculaciones`| Contrata a un Estudiante/Asistente y le adjudica horas. |
+| **GET** | `/api/v1/profesor/vinculaciones` | Lista los estudiantes subalternos al profesor actual. |
+| **GET** | `/api/v1/profesor/vinculaciones/:id/tareas`| Le permite al Profesor auditar las tareas que ha subido un monitor. |
+| **POST** | `/api/v1/profesor/reportes/generar`| Dispara el Worker de Inteligencia Artificial (Ollama) para crear PDFs. |
+| **GET** | `/api/v1/profesor/reportes/:id/descargar`| Sirve el archivo binario PDF final con las firmas y resúmenes de AI. |
+
+**📝 Estudiantes (`MONITOR` / `GRAD_ASSISTANT`)**
+| Método | Endpoint | Acción |
+| :--- | :--- | :--- |
+| **GET** | `/api/v1/me/vinculaciones` | Devuelve los "Trabajos" asignados del estudiante que tiene la sesión iniciada. |
+| **POST** | `/api/v1/vinculaciones/:id/tareas`| Sube el registro (timesheet) de qué hizo esta semana, y cuántas horas invirtió. |
+| **GET** | `/api/v1/vinculaciones/:id/tareas`| Lista todas las tareas documentadas del monitor para esa vinculación. |
+| **GET** | `/api/v1/me/tareas/historial` | Balance general de todo el tiempo y tareas invertidas por él. |
+| **POST** | `/api/v1/tareas/:id/adjuntos` | Sube evidencias físicas (PDF, imágenes) para respaldar una labor. |
