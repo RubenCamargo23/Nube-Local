@@ -1,4 +1,4 @@
-name: CI - Quality Gates
+name: CI - Pipeline
 
 on:
   push:
