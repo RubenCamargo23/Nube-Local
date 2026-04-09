@@ -1,0 +1,239 @@
+name: CI - Quality Gates
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Versión manual (opcional)'
+        required: false
+        default: ''
+
+jobs:
+  # ════════════════════════════════════════
+  # JOB 1: Tests y Build
+  # ════════════════════════════════════════
+  test-and-build:
+    name: Tests y Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./monitors-platform
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: monitors_user
+          POSTGRES_PASSWORD: monitors_pass
+          POSTGRES_DB: monitors_test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Go 1.22
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Cachear módulos de Go
+        uses: actions/cache@v4
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+
+      - name: Instalar dependencias
+        run: go mod download
+
+      - name: Verificar que compila
+        run: go build ./...
+
+      - name: Instalar golang-migrate
+        run: go install github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+
+      - name: Aplicar migraciones
+        env:
+          DATABASE_URL: postgres://monitors_user:monitors_pass@localhost:5432/monitors_test_db?sslmode=disable
+        run: migrate -path ./migrations -database "$DATABASE_URL" up
+
+      - name: Ejecutar tests
+        env:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_USER: monitors_user
+          DB_PASSWORD: monitors_pass
+          DB_NAME: monitors_test_db
+          REDIS_ADDR: localhost:6379
+          JWT_SECRET: ci_test_secret
+          STORAGE_PATH: /tmp/storage
+          PDF_PATH: /tmp/storage/pdfs
+        run: |
+          mkdir -p /tmp/storage/pdfs
+          go test ./... -v -coverprofile=coverage.out -timeout 120s
+
+      - name: Verificar cobertura mínima (70%)
+        run: |
+          COVERAGE=$(go tool cover -func=coverage.out | grep total | awk '{print $3}' | tr -d '%')
+          echo "Cobertura: $COVERAGE%"
+          if (( $(echo "$COVERAGE < 70" | bc -l) )); then
+            echo "Cobertura insuficiente: $COVERAGE%"
+            exit 1
+          fi
+
+      - name: Subir reporte de cobertura
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: monitors-platform/coverage.out
+          retention-days: 7
+
+  # ════════════════════════════════════════
+  # JOB 2: Release y Merge (solo en develop)
+  # ════════════════════════════════════════
+  release-and-merge:
+    name: Release y Merge
+    runs-on: ubuntu-latest
+    needs: test-and-build
+    if: github.ref == 'refs/heads/develop' || github.event_name == 'workflow_dispatch'
+    defaults:
+      run:
+        working-directory: ./monitors-platform
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configurar Git
+        run: |
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+
+      - name: Definir versión
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            git fetch --tags
+            LAST_TAG=$(git tag -l "v*" | sort -V | tail -n1)
+            if [ -z "$LAST_TAG" ]; then
+              VERSION="1.0.0"
+            else
+              LAST_VERSION=$(echo $LAST_TAG | sed 's/v//')
+              MAJOR=$(echo $LAST_VERSION | cut -d. -f1)
+              MINOR=$(echo $LAST_VERSION | cut -d. -f2)
+              PATCH=$(echo $LAST_VERSION | cut -d. -f3)
+              PATCH=$((PATCH + 1))
+              VERSION="$MAJOR.$MINOR.$PATCH"
+            fi
+          fi
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+
+      - name: Crear rama release
+        run: |
+          RELEASE_BRANCH="release_$VERSION"
+          echo "RELEASE_BRANCH=$RELEASE_BRANCH" >> $GITHUB_ENV
+          git checkout develop
+          git pull origin develop
+          git checkout -b "$RELEASE_BRANCH"
+          git push -u origin "$RELEASE_BRANCH"
+
+      - name: Merge release -> main
+        run: |
+          git checkout main
+          git pull origin main
+          git merge "$RELEASE_BRANCH" -X theirs -m "release $VERSION"
+          git push origin main
+
+      - name: Crear tag
+        run: |
+          git tag -a "v$VERSION" -m "Release v$VERSION"
+          git push origin "v$VERSION"
+
+      - name: Merge main -> develop
+        run: |
+          git checkout develop
+          git pull origin develop
+          git merge main
+          git push origin develop
+
+      - name: Eliminar rama release
+        run: git push origin --delete "$RELEASE_BRANCH"
+
+  # ════════════════════════════════════════
+  # JOB 3: Verificación Docker
+  # ════════════════════════════════════════
+  docker-check:
+    name: Docker Check
+    runs-on: ubuntu-latest
+    needs: test-and-build
+    defaults:
+      run:
+        working-directory: ./monitors-platform
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Crear .env de prueba
+        run: |
+          cat > .env << 'ENVEOF'
+          DB_HOST=postgres
+          DB_PORT=5432
+          DB_USER=monitors_user
+          DB_PASSWORD=monitors_pass
+          DB_NAME=monitors_db
+          REDIS_ADDR=redis:6379
+          JWT_SECRET=ci_test_secret_docker
+          OLLAMA_HOST=http://ollama:11434
+          OLLAMA_MODEL=qwen2.5:3b
+          STORAGE_PATH=/app/storage
+          PDF_PATH=/app/storage/pdfs
+          ENVEOF
+
+      - name: Build de imágenes Docker
+        run: docker compose build api worker
+
+      - name: Verificar sintaxis docker-compose.yml
+        run: docker compose config --quiet
+
+      - name: Levantar servicios
+        run: |
+          docker compose up -d postgres redis nginx api
+          sleep 25
+
+      - name: Healthcheck API
+        run: curl --retry 5 --retry-delay 5 --fail http://localhost/api/v1/health
+
+      - name: Ver logs en caso de fallo
+        if: failure()
+        run: docker compose logs
+
+      - name: Detener servicios
+        if: always()
+        run: docker compose down -v
