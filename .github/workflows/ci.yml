@@ -167,7 +167,7 @@ jobs:
         run: |
           git checkout main
           git pull origin main
-          git merge "$RELEASE_BRANCH" -X theirs -m "release $VERSION"
+          git merge "$RELEASE_BRANCH" --no-ff -X theirs -m "release $VERSION"
           git push origin main
       - name: Crear Release en GitHub (con Changelog)
         working-directory: ./monitors-platform
