@@ -26,7 +26,7 @@ curl -X POST http://localhost:80/api/v1/auth/login \
      -d '{"email": "garcia@universidad.edu", "password": "password123"}'
 ```
 
-*   **Validación Logs:** Busca `Login exitoso para: garcia@universidad.edu` en `docker logs monitors-platform-api-1`.
+*   **Validación Logs:** Ejecuta `docker logs monitors-platform-api-1` y busca `Login exitoso para: garcia@universidad.edu`.
 *   **Validación DB:** Verifica que el usuario existe en `SELECT email, rol FROM usuarios WHERE email = 'garcia@universidad.edu';`.
 
 ### Paso B: Creación de Tareas (Monitor)
@@ -44,7 +44,7 @@ curl -X POST http://localhost:80/api/v1/vinculaciones/11111111-1111-1111-1111-11
        "fecha": "2026-04-01"
      }'
 ```
-*   **Validación Logs:** Verás `Tarea creada exitosamente` en los logs del API.
+*   **Validación Logs:** Ejecuta `docker logs monitors-platform-api-1` y busca `Tarea creada exitosamente`.
 *   **Validación DB:** `SELECT * FROM tareas WHERE vinculacion_id = '11111111-1111-1111-1111-11111111aaaa';`.
 
 ### Paso C: Disparo de Generación de Reporte (Profesor)
@@ -59,14 +59,15 @@ curl -X POST http://localhost:80/api/v1/profesor/reportes/generar \
        "semana_inicio": "2026-03-30"
      }'
 ```
+*   **Validación API:** Ejecuta `docker logs monitors-platform-api-1` y busca `Reporte encolado correctamente`.
 *   **Validación DB:** `SELECT id, estado_generacion FROM reportes_pdf WHERE estado_generacion = 'PENDING' LIMIT 1;`.
 
 ### Paso D: Procesamiento (Background Worker)
 El worker de Asynq tomará la tarea y llamará a Ollama. 
 
-*   **Validación Logs IA:** Ejecuta `docker logs -f monitors-platform-worker-1`.
-    *   Busca: `Enviando prompt a Ollama para reporte...` (Aquí verás los datos enviados).
-    *   Busca: `Ollama respondió para reporte...` (Aquí verás el resumen generado).
+*   **Validación Logs IA:** Ejecuta `docker logs monitors-platform-worker-1`:
+    *   Busca: `Enviando prompt a Ollama...` (Confirmación de entrada).
+    *   Busca: `Ollama respondió...` (Confirmación de salida).
 *   **Validación DB Física:** `SELECT ruta_pdf, prompt_usado FROM reportes_pdf WHERE estado_generacion = 'DONE';`.
 
 ### Paso E: Descarga del Reporte (Profesor)
