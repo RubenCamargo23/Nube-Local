@@ -16,6 +16,13 @@ Se han configurado los siguientes usuarios con contraseña `password123`:
 
 ## 3. Flujo de Ejecución (Paso a Paso)
 
+### Paso 0: Preparación de Datos (Seed)
+Para que el flujo funcione con los IDs de prueba, primero debemos poblar la base de datos:
+```bash
+docker exec -i monitors-platform-postgres-1 psql -U monitors_user -d monitors_db < migrations/seed.sql
+```
+*   **Validación DB:** `SELECT count(*) FROM usuarios;` (Debe devolver al menos 2).
+
 ### Paso A: Autenticación (Login)
 Primero, obtenemos los tokens JWT para ambos roles.
 
@@ -192,22 +199,28 @@ Durante el flujo, puedes realizar estas consultas para asegurar la integridad de
 
 ---
 
-## 8. Inspección de Logs de Inteligencia Artificial
+## 9. Guía de Colaboración y Pipeline (Equipo de 4 Integrantes)
 
-Para auditar qué se le envía a la IA y qué responde exactamente, debes inspeccionar los logs del componente **Worker**:
+Para garantizar la estabilidad del proyecto y el éxito del pipeline de CI/CD, se define el siguiente esquema de trabajo:
 
-```bash
-docker logs -f monitors-platform-worker-1
-```
+### Estructura de Trabajo por Roles
 
-### Qué buscar en los logs:
+| Integrante | Rol | Actividades Principales | Rama Base |
+| :--- | :--- | :--- | :--- |
+| **Ruben Camargo** | **DevOps & Security** | Infraestructura Docker, GitHub Actions, Seguridad JWT y Middleware de acceso. | `feature/infra-security` |
+| **Diego Rojas** | **Core Backend Dev** | Modelos DB, Repositorios, Servicios de Espacios/Tareas y reglas de negocio. | `feature/core-domain` |
+| **David Rojas** | **AI & Worker Dev** | Lógica de Asynq (Redis), Integración con Ollama y generación de PDFs. | `feature/ai-worker` |
+| **Brian Martinez** | **QA & Doc Lead** | Pruebas unitarias, E2E con Postman, actualización de README y Swagger. | `feature/qa-docs` |
 
-1.  **El Prompt (Entrada):**
-    Busca la línea `Enviando prompt a Ollama para reporte [ID]:`. Verás el texto estructurado con las tareas, descripciones y horas que el Worker extrajo de la base de datos.
-    
-2.  **La Respuesta (Salida):**
-    Busca la línea `Ollama respondió para reporte [ID]:`. Aquí aparecerá el resumen profesional generado por el modelo `qwen2.5:3b`.
+### Estrategia de Ramas (Gitflow)
+*   **`main`**: Código de producción. Solo se actualiza tras un release exitoso.
+*   **`develop`**: Rama principal de integración.
+*   **`feature/*`**: Ramas de desarrollo individual. Se fusionan a `develop` mediante **Pull Request**.
 
-3.  **Errores de Inferencia:**
-    Si ves `Error Ollama para reporte [ID]:`, verifica que el contenedor de Ollama tenga suficiente memoria asignada y que el modelo haya sido descargado previamente.
+### Reglas para NO romper el Pipeline
+1.  **Pruebas Locales:** Nunca hacer `push` sin ejecutar `go test ./...` localmente.
+2.  **Validación Docker:** Asegurar que el proyecto compila con `docker-compose build` antes de integrar.
+3.  **Migraciones Atómicas:** Cualquier cambio en la DB debe ir acompañado de su archivo correspondiente en `/migrations`.
+4.  **Mocks para IA:** En el pipeline de CI, las pruebas de IA deben usar Mocks para evitar la dependencia de Ollama y el consumo excesivo de CPU.
+5.  **Code Review:** Al menos un compañero debe aprobar el Pull Request antes de fusionar a `develop`.
 
