@@ -23,6 +23,11 @@ type Service interface {
     FindByID(ctx context.Context, id uuid.UUID) (*TaskResponse, error)
     Update(ctx context.Context, id uuid.UUID, req UpdateTaskRequest) (*TaskResponse, error)
     Delete(ctx context.Context, id uuid.UUID) error
+    FindByVinculacionSemana(ctx context.Context, vinculacionID uuid.UUID, semana string) ([]TaskResponse, error)
+    ResumenByUsuario(ctx context.Context, usuarioID uuid.UUID, profesorID uuid.UUID) ([]TaskResponse, error)
+    EstadoSemanal(ctx context.Context, espacioID uuid.UUID, semana string) ([]map[string]interface{}, error)
+    FindByUsuario(ctx context.Context, usuarioID uuid.UUID) ([]TaskResponse, error)
+    AddAttachment(ctx context.Context, tareaID uuid.UUID, nombreArchivo string, ruta string, mime string, size int64) error
 }
 
 type service struct {
@@ -42,7 +47,10 @@ func (s *service) Create(ctx context.Context, vinculacionID uuid.UUID, req Creat
     }
 
     active, err := s.spacesSvc.IsActive(ctx, assignment.EspacioID)
-    if err != nil || !active {
+    if err != nil {
+        return nil, err
+    }
+    if !active {
         return nil, ErrEspacioCerrado
     }
 
@@ -96,4 +104,32 @@ func (s *service) Delete(ctx context.Context, id uuid.UUID) error {
     }
 
     return s.repo.Delete(ctx, id)
+}
+
+func (s *service) FindByVinculacionSemana(ctx context.Context, vinculacionID uuid.UUID, semana string) ([]TaskResponse, error) {
+    parsedDate, err := time.Parse("2006-01-02", semana)
+    if err != nil {
+        return nil, errors.New("formato de semana inválido")
+    }
+    return s.repo.FindByVinculacionSemana(ctx, vinculacionID, parsedDate)
+}
+
+func (s *service) ResumenByUsuario(ctx context.Context, usuarioID uuid.UUID, profesorID uuid.UUID) ([]TaskResponse, error) {
+    return s.repo.ResumenByUsuario(ctx, usuarioID, profesorID)
+}
+
+func (s *service) EstadoSemanal(ctx context.Context, espacioID uuid.UUID, semana string) ([]map[string]interface{}, error) {
+    parsedDate, err := time.Parse("2006-01-02", semana)
+    if err != nil {
+        return nil, errors.New("formato de semana inválido")
+    }
+    return s.repo.EstadoSemanal(ctx, espacioID, parsedDate)
+}
+
+func (s *service) FindByUsuario(ctx context.Context, usuarioID uuid.UUID) ([]TaskResponse, error) {
+    return s.repo.FindByUsuario(ctx, usuarioID)
+}
+
+func (s *service) AddAttachment(ctx context.Context, tareaID uuid.UUID, nombreArchivo string, ruta string, mime string, size int64) error {
+    return s.repo.AddAttachment(ctx, tareaID, nombreArchivo, ruta, mime, size)
 }

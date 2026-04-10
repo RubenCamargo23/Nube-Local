@@ -37,9 +37,21 @@ func (w *Worker) ProcessTask(ctx context.Context, t *asynq.Task) error {
     semana, _ := time.Parse("2006-01-02", payload.SemanaInicio)
 
     // Actualizar estado a PROCESSING
+    log.Printf("Procesando reporte: %s", reporteID)
     w.db.Exec(ctx, `UPDATE reportes_pdf SET estado_generacion='PROCESSING' WHERE id=$1`, reporteID)
 
+    // Obtener nombre del monitor
+    var nombreMonitor string
+    err := w.db.QueryRow(ctx, 
+        `SELECT u.nombre FROM vinculaciones v 
+         JOIN usuarios u ON u.id = v.usuario_id 
+         WHERE v.id = $1`, vinculacionID).Scan(&nombreMonitor)
+    if err != nil {
+        nombreMonitor = vinculacionID.String() // Fallback al ID si algo falla
+    }
+
     // Consultar tareas de la semana
+    log.Printf("Consultando tareas para vinculacion %s, semana %s", vinculacionID, payload.SemanaInicio)
     rows, err := w.db.Query(ctx,
         `SELECT titulo, descripcion, observaciones, horas_invertidas
          FROM tareas
@@ -79,20 +91,25 @@ func (w *Worker) ProcessTask(ctx context.Context, t *asynq.Task) error {
     }
 
     // Llamar a Ollama
+    log.Printf("Enviando prompt a Ollama para reporte %s:\n%s", reporteID, prompt)
     resumen, err := w.ollamaClient.Generate(ctx, prompt)
     if err != nil {
         log.Printf("Error Ollama para reporte %s: %v", reporteID, err)
         w.repo.UpdateError(ctx, reporteID)
         return err
     }
+    log.Printf("Ollama respondió para reporte %s:\n%s", reporteID, resumen)
 
     // Generar PDF
-    outputPath := filepath.Join(w.pdfPath, fmt.Sprintf("reporte_%s_%s.pdf", vinculacionID, payload.SemanaInicio))
-    if err := GeneratePDF(outputPath, vinculacionID.String(), payload.SemanaInicio, resumen); err != nil {
+    log.Printf("Generando PDF para reporte %s en %s", reporteID, w.pdfPath)
+    // Nombre único usando reporteID para evitar sobreescritura
+    outputPath := filepath.Join(w.pdfPath, fmt.Sprintf("reporte_%s.pdf", reporteID))
+    if err := GeneratePDF(outputPath, nombreMonitor, payload.SemanaInicio, resumen); err != nil {
         w.repo.UpdateError(ctx, reporteID)
         return err
     }
 
     // Persistir resultado
+    log.Printf("Persitiendo resultado para reporte %s", reporteID)
     return w.repo.UpdateDone(ctx, reporteID, outputPath, prompt, time.Now())
 }
