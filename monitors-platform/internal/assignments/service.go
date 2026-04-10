@@ -22,6 +22,8 @@ type Service interface {
     FindByEspacio(ctx context.Context, espacioID uuid.UUID) ([]AssignmentResponse, error)
     FindByID(ctx context.Context, id uuid.UUID) (*AssignmentResponse, error)
     Update(ctx context.Context, id uuid.UUID, horas int) error
+    FindByProfesor(ctx context.Context, profesorID uuid.UUID) ([]AssignmentResponse, error)
+    FindByMe(ctx context.Context, usuarioID uuid.UUID) ([]AssignmentResponse, error)
 }
 
 type service struct {
@@ -112,4 +114,12 @@ func (s *service) FindByID(ctx context.Context, id uuid.UUID) (*AssignmentRespon
 
 func (s *service) Update(ctx context.Context, id uuid.UUID, horas int) error {
     return s.repo.Update(ctx, id, horas)
+}
+
+func (s *service) FindByProfesor(ctx context.Context, profesorID uuid.UUID) ([]AssignmentResponse, error) {
+    return s.repo.FindByProfesor(ctx, profesorID)
+}
+
+func (s *service) FindByMe(ctx context.Context, usuarioID uuid.UUID) ([]AssignmentResponse, error) {
+    return s.repo.FindByUsuario(ctx, usuarioID)
 }

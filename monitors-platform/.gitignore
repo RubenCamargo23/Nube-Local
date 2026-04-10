@@ -1,3 +1,6 @@
 .env
 storage/
 coverage.out
+*.pdf
+*.sql
+genhash.go

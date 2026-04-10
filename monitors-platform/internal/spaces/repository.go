@@ -30,33 +30,36 @@ func (r *repository) Create(ctx context.Context, req CreateSpaceRequest, profeso
 }
 
 func (r *repository) FindByProfesor(ctx context.Context, profesorID uuid.UUID) ([]SpaceResponse, error) {
-    rows, err := r.db.Query(ctx,
-        `SELECT id, tipo, nombre, periodo_id, fecha_inicio, fecha_fin,
-                profesor_id, observaciones, estado, creado_en
+	rows, err := r.db.Query(ctx,
+		`SELECT id, tipo, nombre, periodo_id, fecha_inicio, fecha_fin,
+                profesor_id, COALESCE(observaciones, ''), estado, creado_en
          FROM espacios WHERE profesor_id = $1 ORDER BY creado_en DESC`, profesorID)
-    if err != nil {
-        return nil, err
-    }
-    defer rows.Close()
-    var spaces []SpaceResponse
-    for rows.Next() {
-        var s SpaceResponse
-        rows.Scan(&s.ID, &s.Tipo, &s.Nombre, &s.PeriodoID, &s.FechaInicio, &s.FechaFin,
-            &s.ProfesorID, &s.Observaciones, &s.Estado, &s.CreadoEn)
-        spaces = append(spaces, s)
-    }
-    return spaces, nil
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var spaces []SpaceResponse
+	for rows.Next() {
+		var s SpaceResponse
+		err := rows.Scan(&s.ID, &s.Tipo, &s.Nombre, &s.PeriodoID, &s.FechaInicio, &s.FechaFin,
+			&s.ProfesorID, &s.Observaciones, &s.Estado, &s.CreadoEn)
+		if err != nil {
+			return nil, err
+		}
+		spaces = append(spaces, s)
+	}
+	return spaces, nil
 }
 
 func (r *repository) FindByID(ctx context.Context, id uuid.UUID) (*SpaceResponse, error) {
-    var s SpaceResponse
-    err := r.db.QueryRow(ctx,
-        `SELECT id, tipo, nombre, periodo_id, fecha_inicio, fecha_fin,
-                profesor_id, observaciones, estado, creado_en
+	var s SpaceResponse
+	err := r.db.QueryRow(ctx,
+		`SELECT id, tipo, nombre, periodo_id, fecha_inicio, fecha_fin,
+                profesor_id, COALESCE(observaciones, ''), estado, creado_en
          FROM espacios WHERE id = $1`, id,
-    ).Scan(&s.ID, &s.Tipo, &s.Nombre, &s.PeriodoID, &s.FechaInicio, &s.FechaFin,
-        &s.ProfesorID, &s.Observaciones, &s.Estado, &s.CreadoEn)
-    return &s, err
+	).Scan(&s.ID, &s.Tipo, &s.Nombre, &s.PeriodoID, &s.FechaInicio, &s.FechaFin,
+		&s.ProfesorID, &s.Observaciones, &s.Estado, &s.CreadoEn)
+	return &s, err
 }
 
 func (r *repository) Close(ctx context.Context, id uuid.UUID) error {

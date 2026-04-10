@@ -27,8 +27,9 @@ func GeneratePDF(outputPath, nombrePersona, semana, resumen string) error {
     pdf.Cell(190, 8, "Resumen generado por IA:")
     pdf.Ln(10)
 
+    tr := pdf.UnicodeTranslatorFromDescriptor("")
     pdf.SetFont("Arial", "", 11)
-    pdf.MultiCell(190, 6, resumen, "", "", false)
+    pdf.MultiCell(190, 6, tr(resumen), "", "", false)
 
     return pdf.OutputFileAndClose(outputPath)
 }
