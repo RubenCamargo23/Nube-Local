@@ -25,32 +25,36 @@ jobs:
   test-and-build:
     name: Tests y Build
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: monitors_user
-          POSTGRES_PASSWORD: monitors_pass
-          POSTGRES_DB: monitors_test_db
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U monitors_user -d monitors_test_db"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
       - uses: actions/checkout@v4
+
+      - name: Iniciar servicios de prueba (Postgres & Redis)
+        env:
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        run: |
+          # Usar valores por defecto si los secretos no están configurados
+          USER="${DB_USER:-monitors_user}"
+          PASS="${DB_PASSWORD:-monitors_pass}"
+
+          docker run --name postgres -d \
+            -p 5432:5432 \
+            -e POSTGRES_USER="$USER" \
+            -e POSTGRES_PASSWORD="$PASS" \
+            -e POSTGRES_DB=monitors_test_db \
+            -e POSTGRES_HOST_AUTH_METHOD=trust \
+            postgres:16-alpine
+          
+          docker run --name redis -d \
+            -p 6379:6379 \
+            redis:7-alpine
+
+          # Esperar a que Postgres esté listo
+          until docker exec postgres pg_isready -U "$USER" -d monitors_test_db; do
+            echo "Esperando a Postgres..."
+            sleep 2
+          done
+          echo "Postgres listo."
 
       - name: Setup Go 1.24
         uses: actions/setup-go@v5
@@ -82,22 +86,29 @@ jobs:
       - name: Aplicar migraciones
         working-directory: ./monitors-platform
         env:
-          DATABASE_URL: postgres://monitors_user:monitors_pass@localhost:5432/monitors_test_db?sslmode=disable
-        run: /usr/local/bin/migrate -path ./migrations -database "$DATABASE_URL" up
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        run: |
+          USER="${DB_USER:-monitors_user}"
+          PASS="${DB_PASSWORD:-monitors_pass}"
+          DATABASE_URL="postgres://$USER:$PASS@localhost:5432/monitors_test_db?sslmode=disable"
+          /usr/local/bin/migrate -path ./migrations -database "$DATABASE_URL" up
 
       - name: Ejecutar tests
         working-directory: ./monitors-platform
         env:
           DB_HOST: localhost
           DB_PORT: 5432
-          DB_USER: monitors_user
-          DB_PASSWORD: monitors_pass
+          DB_USER_SECRET: ${{ secrets.DB_USER }}
+          DB_PASSWORD_SECRET: ${{ secrets.DB_PASSWORD }}
           DB_NAME: monitors_test_db
           REDIS_ADDR: localhost:6379
           JWT_SECRET: ci_test_secret
           STORAGE_PATH: /tmp/storage
           PDF_PATH: /tmp/storage/pdfs
         run: |
+          export DB_USER="${DB_USER_SECRET:-monitors_user}"
+          export DB_PASSWORD="${DB_PASSWORD_SECRET:-monitors_pass}"
           mkdir -p /tmp/storage/pdfs
           go test ./... -v -coverprofile=coverage.out -timeout 120s
 
@@ -199,12 +210,17 @@ jobs:
       - uses: actions/checkout@v4
       - name: Crear .env de prueba
         working-directory: ./monitors-platform
+        env:
+          DB_USER_SECRET: ${{ secrets.DB_USER }}
+          DB_PASSWORD_SECRET: ${{ secrets.DB_PASSWORD }}
         run: |
-          cat > .env << 'ENVEOF'
+          USER="${DB_USER_SECRET:-monitors_user}"
+          PASS="${DB_PASSWORD_SECRET:-monitors_pass}"
+          cat > .env << ENVEOF
           DB_HOST=postgres
           DB_PORT=5432
-          DB_USER=monitors_user
-          DB_PASSWORD=monitors_pass
+          DB_USER=$USER
+          DB_PASSWORD=$PASS
           DB_NAME=monitors_db
           REDIS_ADDR=redis:6379
           JWT_SECRET=ci_test_secret_docker

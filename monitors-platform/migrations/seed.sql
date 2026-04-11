@@ -3,8 +3,8 @@
 
 -- 1. Usuarios Base
 INSERT INTO usuarios (id, nombre, email, password_hash) VALUES
-('22222222-2222-2222-2222-222222222222', 'Profesor Garcia', 'garcia@universidad.edu', '$2a$10$YpW8GjO3u0j3vA7Z0L.V.Ou2Y5k4U5u7uO0eA7v.H8v4oX1zW.z.i'),
-('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Estudiante GA y Monitor', 'gamonitor@universidad.edu', '$2a$10$YpW8GjO3u0j3vA7Z0L.V.Ou2Y5k4U5u7uO0eA7v.H8v4oX1zW.z.i')
+('22222222-2222-2222-2222-222222222222', 'Profesor Garcia', 'garcia@universidad.edu', '$2a$10$3l943zTUHOPIIJhqYwVIU.Sp/o6iGDShH2iNneyVNPr3uLatvw4ya'),
+('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', 'Estudiante GA y Monitor', 'gamonitor@universidad.edu', '$2a$10$3l943zTUHOPIIJhqYwVIU.Sp/o6iGDShH2iNneyVNPr3uLatvw4ya')
 ON CONFLICT (id) DO UPDATE SET password_hash = EXCLUDED.password_hash;
 
 -- 2. Asignar Roles
