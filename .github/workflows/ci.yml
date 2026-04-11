@@ -25,32 +25,31 @@ jobs:
   test-and-build:
     name: Tests y Build
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16-alpine
-        env:
-          POSTGRES_USER: ${{ secrets.DB_USER }}
-          POSTGRES_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          POSTGRES_DB: monitors_test_db
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U ${{ secrets.DB_USER }} -d monitors_test_db"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
       - uses: actions/checkout@v4
+
+      - name: Iniciar servicios de prueba (Postgres & Redis)
+        env:
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        run: |
+          docker run --name postgres -d \
+            -p 5432:5432 \
+            -e POSTGRES_USER="$DB_USER" \
+            -e POSTGRES_PASSWORD="$DB_PASSWORD" \
+            -e POSTGRES_DB=monitors_test_db \
+            postgres:16-alpine
+          
+          docker run --name redis -d \
+            -p 6379:6379 \
+            redis:7-alpine
+
+          # Esperar a que Postgres esté listo
+          until docker exec postgres pg_isready -U "$DB_USER" -d monitors_test_db; do
+            echo "Esperando a Postgres..."
+            sleep 2
+          done
+          echo "Postgres listo."
 
       - name: Setup Go 1.24
         uses: actions/setup-go@v5
