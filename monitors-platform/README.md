@@ -16,8 +16,21 @@ Se han configurado los siguientes usuarios con contraseña `password123`:
 
 ## 3. Flujo de Ejecución (Paso a Paso)
 
-### Paso 0: Preparación de Datos (Seed)
-Para que el flujo funcione con los IDs de prueba, primero debemos poblar la base de datos:
+### Paso 0: Preparación de Base de Datos
+
+**1. Ejecutar Migraciones (Opcional si la API no lo hace automáticamente):**
+**Instalación del comando `migrate`:**
+*   **macOS:** `brew install golang-migrate`
+*   **Windows:** `scoop install migrate` o `choco install golang-migrate`
+
+**Ejecución manual:**
+```bash
+# macOS / Linux / Windows (Git Bash)
+migrate -path ./migrations -database "postgres://monitors_user:monitors_pass@localhost:5432/monitors_db?sslmode=disable" up
+```
+
+**2. Poblar Datos de Prueba (Seed):**
+Para que el flujo funcione con los IDs de prueba, debemos poblar la base de datos:
 ```bash
 docker exec -i monitors-platform-postgres-1 psql -U monitors_user -d monitors_db < migrations/seed.sql
 ```
