@@ -45,7 +45,7 @@ func (r *repository) FindRolesByUserID(ctx context.Context, userID uuid.UUID) ([
     }
     defer rows.Close()
 
-    var roles []string
+    roles := []string{}
     for rows.Next() {
         var role string
         if err := rows.Scan(&role); err != nil {

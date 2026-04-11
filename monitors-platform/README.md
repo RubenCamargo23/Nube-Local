@@ -51,11 +51,11 @@ curl -X POST http://localhost:80/api/v1/vinculaciones/11111111-1111-1111-1111-11
      -H "Authorization: Bearer [TOKEN_MONITOR]" \
      -H "Content-Type: application/json" \
      -d '{
-       "espacio_id": "cccccccc-cccc-cccc-cccc-cccccccccccc",
        "titulo": "Desarrollo de Endpoints API",
        "descripcion": "Implementación de lógica para reportes",
-       "horas": 5,
-       "fecha": "2026-04-01"
+       "estado": "finalizado",
+       "semana_inicio": "2026-03-30",
+       "horas_invertidas": 5
      }'
 ```
 *   **Validación Logs:** Ejecuta `docker logs monitors-platform-api-1` y busca `Tarea creada exitosamente`.
@@ -171,11 +171,17 @@ Esta es la secuencia exacta utilizada durante la estabilización del sistema par
 
 2.  **Registro de actividad (Monitor):**
     ```bash
-    # Registrar tarea de 5 horas
-    curl -X POST http://localhost:80/api/v1/vinculaciones/11111111-1111-1111-1111-11111111aaaa/tareas \
-         -H "Authorization: Bearer [TOKEN_MONITOR]" \
-         -d '{"espacio_id": "cccccccc-cccc-cccc-cccc-cccccccccccc", "titulo": "Desarrollo API", "descripcion": "Implementación de endpoints", "horas": 5, "fecha": "2026-03-31"}'
-    ```
+curl -X POST http://localhost:80/api/v1/vinculaciones/11111111-1111-1111-1111-11111111aaaa/tareas \
+     -H "Authorization: Bearer [TOKEN_MONITOR]" \
+     -H "Content-Type: application/json" \
+     -d '{
+       "titulo": "Desarrollo de Endpoints API",
+       "descripcion": "Implementación de lógica para reportes",
+       "estado": "finalizado",
+       "semana_inicio": "2026-03-30",
+       "horas_invertidas": 5
+     }'
+```
 
 3.  **Solicitud de reporte (Profesor):**
     ```bash

@@ -3,4 +3,5 @@ storage/
 coverage.out
 *.pdf
 *.sql
+!migrations/*.sql
 genhash.go
