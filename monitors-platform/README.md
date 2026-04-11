@@ -34,7 +34,14 @@ curl -X POST http://localhost:80/api/v1/auth/login \
 ```
 
 *   **Validación Logs:** Ejecuta `docker logs monitors-platform-api-1` y busca `Login exitoso para: garcia@universidad.edu`.
-*   **Validación DB:** Verifica que el usuario existe en `SELECT email, rol FROM usuarios WHERE email = 'garcia@universidad.edu';`.
+*   **Validación DB:** Verifica los roles del usuario con esta consulta:
+    ```sql
+    SELECT u.email, r.nombre as rol 
+    FROM usuarios u 
+    JOIN usuario_roles ur ON u.id = ur.usuario_id 
+    JOIN roles r ON ur.rol_id = r.id 
+    WHERE u.email = 'garcia@universidad.edu';
+    ```
 
 ### Paso B: Creación de Tareas (Monitor)
 Para generar un reporte, el monitor debe haber registrado tareas en un espacio activo.
