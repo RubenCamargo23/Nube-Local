@@ -29,13 +29,13 @@ jobs:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_USER: monitors_user
-          POSTGRES_PASSWORD: monitors_pass
+          POSTGRES_USER: ${{ secrets.DB_USER }}
+          POSTGRES_PASSWORD: ${{ secrets.DB_PASSWORD }}
           POSTGRES_DB: monitors_test_db
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U monitors_user -d monitors_test_db"
+          --health-cmd "pg_isready -U ${{ secrets.DB_USER }} -d monitors_test_db"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -82,7 +82,7 @@ jobs:
       - name: Aplicar migraciones
         working-directory: ./monitors-platform
         env:
-          DATABASE_URL: postgres://monitors_user:monitors_pass@localhost:5432/monitors_test_db?sslmode=disable
+          DATABASE_URL: postgres://${{ secrets.DB_USER }}:${{ secrets.DB_PASSWORD }}@localhost:5432/monitors_test_db?sslmode=disable
         run: /usr/local/bin/migrate -path ./migrations -database "$DATABASE_URL" up
 
       - name: Ejecutar tests
@@ -90,8 +90,8 @@ jobs:
         env:
           DB_HOST: localhost
           DB_PORT: 5432
-          DB_USER: monitors_user
-          DB_PASSWORD: monitors_pass
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           DB_NAME: monitors_test_db
           REDIS_ADDR: localhost:6379
           JWT_SECRET: ci_test_secret
@@ -203,8 +203,8 @@ jobs:
           cat > .env << 'ENVEOF'
           DB_HOST=postgres
           DB_PORT=5432
-          DB_USER=monitors_user
-          DB_PASSWORD=monitors_pass
+          DB_USER=${{ secrets.DB_USER }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
           DB_NAME=monitors_db
           REDIS_ADDR=redis:6379
           JWT_SECRET=ci_test_secret_docker
